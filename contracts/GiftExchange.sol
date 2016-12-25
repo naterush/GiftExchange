@@ -90,10 +90,8 @@ contract GiftExchange is Token{
         tokens[0] = 0xBB9bc244D798123fDe783fCc1C72d3Bb8C189413;
     }
 
-
-
     function joinExchange(address giftLocation, uint amount) timedTransitions() atStage(Stages.OpenGame) payable{
-        //checks deposit and if token is real
+        //checks deposit, if token is real, and that token has been sent
         if (msg.value != deposit) throw;
         if (!allowedTokens[giftLocation]) throw;
        	if (!Token(giftLocation).transferFrom(msg.sender, this, amount)) throw;
@@ -102,28 +100,18 @@ contract GiftExchange is Token{
         giftSize[numPlayers] = amount;
         numPlayers++;
         playerDeposits[msg.sender] = deposit;
-        //checks if it of a valid amount?
-        //stores the gift associated the the person in some way, or maybe a number
-        //checks to make sure the person actually did transfer the gift
-        //stores an identical list of recievers and givers
-        // the list of givers should be a mapping to bool.
-        //adds one to the number of people on the list
     }
-    //One picks the gift they recieve, not the person they give to
-    //so as to not disadvantage people who participate b/c of those
-    //not participating.
 
     function getGift() timedTransitions() atStage(Stages.WithdrawPeriod){
-        //force a low gas price - this semi-protects random number generation
+        if (playerDeposits[msg.sender] == 0) throw;
+        //force a low gas price - this protects random number generation
         //as it allows for blocks to be generated inbetween transaction
         //and when its published on the blockchain, so there is no way of
         //guessing what the blockhashes will be when your transaction is
 				//processed
-        if (playerDeposits[msg.sender] == 0) throw;
         if (tx.gasprice > 10000 wei) throw;
-        //generated psuedo-random number
-        //uint randNum = randomGen(numPlayers);
-        uint randNum = 2;
+
+        uint randNum = randomGen(numPlayers);
         //generates a random number based on some number of blocks
         //the number is between 0 and numPeopleInList - 1
         if (!Token(giftAddress[randNum]).transfer(msg.sender, giftSize[numPlayers])) throw;
