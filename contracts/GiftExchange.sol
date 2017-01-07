@@ -57,23 +57,31 @@ contract GiftExchange is Token{
         WithdrawPeriod
     }
 
+    //Tokens taken from https://etherscan.io/tokens. If you want to have a token
+    //added to this list, please submit a Github issue (github.com/naterush).
     address[2] public tokens = [
-        0xBB9bc244D798123fDe783fCc1C72d3Bb8C189413,
-        0xa74476443119A942dE498590Fe1f2454d7D4aC0d
+        0xe0b7927c4af23765cb51314a0e0521a9645f0e2a, //DGD Token
+        0xAf30D2a7E90d7DC361c8C4585e9BB7D2F6f15bc7, //FirstBlood
+        0xa74476443119A942dE498590Fe1f2454d7D4aC0d, //Golem
+        0x888666CA69E0f178DED6D75b5726Cee99A87D698, //ICONOMI
+        0xc66ea802717bfb9833400264dd12c2bceaa34a6d, //MKR
+        0xD8912C10681D8B21Fd3742244f44658dBA12264E, //Pluton
+        0x48c80F1f4D53D5951e5D5438B54Cba84f29F32a5, //REP
+        0xaec2e87e0a235266d9c5adc9deb4b2e29b54d009, //SNGLS
     ];
 
     Stages public stage;
 
     modifier atStage(Stages _stage) {
-        if (stage != _stage) throw;
+        if (_stage != stage) throw;
         _;
     }
 
     function nextStage() internal {
         //semi-protects random number generation
-        if (tx.gasprice > 10000 wei) throw;
-        stage = Stages(uint(stage) + 1);
+        if (tx.gasprice > 1,000,000,000 wei) throw;
         randShift = randomGen(numPlayers);
+        stage = Stages(uint(stage) + 1);
     }
 
     modifier timedTransitions() {
@@ -90,13 +98,16 @@ contract GiftExchange is Token{
          _;
      }
 
+    //constructor
     function GiftExchange(uint _timeUntillWithdraw, uint _deposit) savingAllowedERCTokens() {
         creationTime = now;
         timeUntillWithdraw = _timeUntillWithdraw;
-        stage = Stages.OpenGame;
         deposit = _deposit;
+        stage = Stages.OpenGame;
     }
 
+    //make sure you call approve on the token contract you wish to gift.
+    //parameters should be (addressOfThisContract, giftAmountInTokens).
     function joinExchange(address giftLocation, uint amount) timedTransitions() atStage(Stages.OpenGame) payable{
         //checks deposit, if token is real, and that token has been transfered
         if (msg.value != deposit) throw;
@@ -106,12 +117,15 @@ contract GiftExchange is Token{
         giftAddress[numPlayers] = giftLocation;
         giftSize[numPlayers] = amount;
         playerNumber[msg.sender] = numPlayers;
-        numPlayers++;
         playerDeposits[msg.sender] = deposit;
+        numPlayers++;
     }
 
+    //if you are the first person to call this, or your transaction is failing
+    //for an unknown reason, please lower your gas price (this is to semi-protect
+    //pseudo-random number generation).
     function getGift() timedTransitions() atStage(Stages.WithdrawPeriod){
-        //checks for player/recursive protection
+        //checks for player existance/functions as recursive protection
         if (playerDeposits[msg.sender] == 0) throw;
         //transfer the ~randomly selected token
         uint randGift = (playerNumber[msg.sender] + randShift) % numPlayers;
@@ -124,7 +138,7 @@ contract GiftExchange is Token{
         }
 
 
-	  /* Generates a random number from 0 to 100 based on the last block hash */
+	  /* Generates a random number from 0 to size based on the last block hash */
     //taken from Alex Van de Sande github
     function randomGen(uint size) constant returns (uint randNum) {
         return (uint(sha3(block.blockhash(block.number - 1))) % size);
